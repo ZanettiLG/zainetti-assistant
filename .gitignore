@@ -2,3 +2,4 @@
 node_modules
 temp
 assets/pdf/*.pdf
+**/PLAN.md
