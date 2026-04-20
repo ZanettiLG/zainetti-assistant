@@ -1,0 +1,59 @@
+[
+  {
+    "q": "O que é embedding?",
+    "intent": "pontual",
+    "must_mention_lessons": ["langchain01"]
+  },
+  {
+    "q": "O que é um retriever no LangChain?",
+    "intent": "pontual",
+    "must_mention_lessons": ["langchain02"]
+  },
+  {
+    "q": "O que é um vector store?",
+    "intent": "pontual",
+    "must_mention_lessons": ["langchain01"]
+  },
+  {
+    "q": "Como o curso aborda retrievers?",
+    "intent": "ampla",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Como o curso aborda embeddings e sua aplicação prática?",
+    "intent": "ampla",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Quais são os principais conceitos abordados ao longo do curso?",
+    "intent": "ampla",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Compare as abordagens de retrieval vistas nas aulas",
+    "intent": "comparativa",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Qual a diferença entre os modelos de linguagem apresentados nas aulas?",
+    "intent": "comparativa",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Compare como cada aula usa exemplos práticos de código",
+    "intent": "comparativa",
+    "min_distinct_lessons": 2
+  },
+  {
+    "q": "Em qual aula se fala de LangGraph?",
+    "intent": "localizadora"
+  },
+  {
+    "q": "Em qual aula aparece o conceito de chains?",
+    "intent": "localizadora"
+  },
+  {
+    "q": "Onde no curso se discute prompt engineering?",
+    "intent": "localizadora"
+  }
+]

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistente Zainetti</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <span class="logo"></span>
+    <div>
+      <h1>Assistente Zainetti</h1>
+      <p>Pergunte sobre as aulas e tire suas dúvidas, fui treinado com todas as aulas pelo próprio Zanetti.</p>
+    </div>
+  </header>
+  <main>
+    <div class="box">
+      <div id="steps" class="steps" hidden></div>
+      <details class="thinking" id="thinking" hidden>
+        <summary class="thinking__summary">Raciocinio do modelo</summary>
+        <div class="thinking__body" id="thinking-body"></div>
+      </details>
+      <div id="output" class="prose surface-inset"><p>Olá! O que você gostaria de saber?</p></div>
+    </div>
+    <form id="chat-form">
+      <input id="message" class="field" placeholder="Pergunte algo sobre as aulas" />
+      <button type="submit" class="field">Enviar</button>
+    </form>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

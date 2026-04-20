@@ -1,0 +1,447 @@
+/* =========================================================
+   Design tokens
+   ========================================================= */
+:root {
+    /* Cores - superficies */
+    --bg-app: #101626;
+    --bg-surface: #182033;
+    --bg-inset: #0f1524;
+    --bg-inset-strong: #0a0f1a;
+    --bg-code: #1a2440;
+
+    /* Cores - texto */
+    --text-primary: #f4f7fb;
+    --text-secondary: #b6c2df;
+    --text-muted: #8fa1c7;
+    --text-subtle: #5a6a8a;
+    --text-heading: #e2e8f4;
+
+    /* Cores - bordas */
+    --border-default: #2d3b5f;
+    --border-strong: #32436a;
+    --border-subtle: #1e2a45;
+
+    /* Cores - semanticas (accent/estado) */
+    --accent: #79b8ff;
+    --accent-soft: rgba(121, 184, 255, 0.05);
+    --success: #4ade80;
+    --danger: #ff6b6b;
+    --danger-soft: rgba(255, 107, 107, 0.05);
+
+    /* Tipografia */
+    --font-sans: Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --fs-sm: 0.85rem;
+    --fs-md: 0.9rem;
+    --fs-lg: 1.05rem;
+    --fs-xl: 1.2rem;
+    --fs-2xl: 1.4rem;
+
+    /* Espacamento */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+
+    /* Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+
+    /* Outros */
+    --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.35);
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.2s ease;
+}
+
+/* =========================================================
+   Base
+   ========================================================= */
+body {
+    gap: 3rem;
+    margin: 0;
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+}
+
+header {
+    gap: 1rem;
+    display: flex;
+    width: fit-content;
+    flex-direction: row;
+    align-items: center;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: var(--fs-2xl);
+}
+
+p {
+    color: var(--text-secondary);
+}
+
+/* =========================================================
+   Layout: container principal
+   ========================================================= */
+main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    width: min(720px, calc(100vw - 32px));
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-elevated);
+}
+
+.box {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    flex-shrink: 0;
+    height: 500px;
+    overflow-x: none;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+/* =========================================================
+   Formulario: input + botao
+   ========================================================= */
+form {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.field {
+    font: inherit;
+    padding: var(--space-3) 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+}
+
+input.field {
+    color: var(--text-primary);
+    background: var(--bg-inset);
+}
+
+button.field {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--bg-inset);
+    background: var(--accent);
+}
+
+/* =========================================================
+   Superficie "inset" reutilizavel (fundo escuro dentro do main)
+   ========================================================= */
+.surface-inset {
+    background: var(--bg-inset);
+    border-radius: var(--radius-xl);
+}
+
+/* =========================================================
+   Prose: conteudo renderizado (markdown)
+   ========================================================= */
+.prose {
+    padding: var(--space-4);
+    margin-bottom: 0;
+    min-height: 180px;
+    height: fit-content;
+    line-height: 1.6;
+    overflow-wrap: break-word;
+    min-height: fit-content;
+}
+
+.prose :is(h1, h2, h3, h4) {
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+    color: var(--text-heading);
+}
+
+.prose h1 {
+    font-size: var(--fs-2xl);
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border-default);
+}
+
+.prose h2 { font-size: var(--fs-xl); }
+.prose h3 { font-size: var(--fs-lg); }
+
+.prose p { margin: 0.5em 0; }
+
+.prose :is(ul, ol) {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.prose li { margin: 0.25em 0; }
+
+.prose blockquote {
+    margin: 0.8em 0;
+    padding: 0.4em 1em;
+    color: var(--text-muted);
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.prose code {
+    padding: 0.15em 0.4em;
+    font-size: 0.9em;
+    font-family: var(--font-mono);
+    background: var(--bg-code);
+    border-radius: var(--radius-sm);
+}
+
+.prose pre {
+    margin: 0.5em 0;
+    padding: var(--space-3);
+    overflow-x: auto;
+    background: var(--bg-inset-strong);
+    border-radius: var(--radius-md);
+}
+
+.prose pre code {
+    padding: 0;
+    background: none;
+}
+
+.prose table {
+    width: 100%;
+    margin: 0.8em 0;
+    border-collapse: collapse;
+}
+
+.prose :is(th, td) {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    border: 1px solid var(--border-default);
+}
+
+.prose th {
+    color: var(--accent);
+    background: var(--bg-code);
+}
+
+.prose strong { color: var(--accent); }
+.prose em     { color: var(--text-secondary); }
+
+.prose a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.prose hr {
+    margin: 1em 0;
+    border: none;
+    border-top: 1px solid var(--border-default);
+}
+
+/* =========================================================
+   Thinking (raciocinio do modelo) - details/summary
+   ========================================================= */
+.thinking {
+    margin: var(--space-3) 0 0;
+    background: var(--bg-inset);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-xl);
+    margin-bottom: var(--space-5);
+}
+
+.thinking[open] {
+    border-style: solid;
+}
+
+.thinking__summary {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 10px 14px;
+    list-style: none;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.thinking__summary::-webkit-details-marker {
+    display: none;
+}
+
+.thinking__summary::before {
+    content: "\25B6";
+    font-size: 0.75rem;
+    transition: transform var(--transition-fast);
+}
+
+.thinking[open] .thinking__summary::before {
+    transform: rotate(90deg);
+}
+
+.thinking__body {
+    padding: 0 14px var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--fs-md);
+    font-family: var(--font-mono);
+    white-space: pre-wrap;
+}
+
+/* =========================================================
+   Workflow / Steps
+   ========================================================= */
+.workflow {
+    margin: var(--space-2) 0 0;
+    color: var(--accent);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+}
+
+.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: var(--space-3) 0;
+}
+
+.step {
+    display: flex;
+    gap: var(--space-2) + 2px;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--fs-sm);
+    font-family: var(--font-mono);
+    background: var(--bg-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-subtle);
+    transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+.step.is-running {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+
+.step.is-done {
+    color: var(--success);
+}
+
+.step.is-error {
+    color: var(--danger);
+    background: var(--danger-soft);
+    border-color: var(--danger);
+}
+
+.step__icon {
+    width: 18px;
+    flex-shrink: 0;
+    margin-right: 1rem;
+    text-align: center;
+}
+
+.step-wrap {
+    display: flex;
+    flex-direction: column;
+}
+
+.step__detail {
+    margin-top: 2px;
+    margin-left: 28px;
+    margin-bottom: 2px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+}
+
+.step__log {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.step__log-line {
+    padding: 1px 0 1px 12px;
+    position: relative;
+    color: var(--text-muted);
+    opacity: 0;
+    animation: step-line-in 0.25s ease forwards;
+}
+
+.step__log-line::before {
+    content: "›";
+    position: absolute;
+    left: 0;
+    color: var(--text-subtle);
+}
+
+.step__status {
+    margin-top: 2px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.step__status:empty {
+    display: none;
+}
+
+@keyframes step-line-in {
+    from {
+        opacity: 0;
+        transform: translateX(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* =========================================================
+   Spinner
+   ========================================================= */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* =========================================================
+   Utilitarios
+   ========================================================= */
+.text-error {
+    color: var(--danger);
+}
+
+.logo {
+    width: 150px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    overflow: hidden;
+    object-fit: cover;
+    border-radius: 50%;
+    pointer-events: none;
+    object-position: 55%;
+    background-image: url("./assets/zanaitti.png");
+    background-size: cover;
+    background-position: 55%;
+}

@@ -1,0 +1,36 @@
+{
+  "name": "aula-04",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "node --watch .",
+    "start": "node .",
+    "example:workflow": "node example-workflow.js",
+    "db:migrate": "knex migrate:latest",
+    "db:seed": "knex seed:run",
+    "db:setup": "knex migrate:latest && knex seed:run",
+    "eval": "node server/eval/run.js"
+  },
+  "dependencies": {
+    "@langchain/classic": "^1.0.31",
+    "@langchain/community": "^1.1.27",
+    "@langchain/core": "^1.1.40",
+    "@langchain/langgraph": "^1.2.8",
+    "@langchain/openai": "^1.4.4",
+    "@langchain/textsplitters": "^1.0.1",
+    "@ngrok/ngrok": "^1.7.0",
+    "dotenv": "^16.4.5",
+    "knex": "^3.2.9",
+    "langsmith": "^0.5.0",
+    "openai": "^4.77.0",
+    "pdf-parse": "^1.1.4",
+    "sqlite3": "^6.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
+  }
+}
