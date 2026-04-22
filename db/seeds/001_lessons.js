@@ -4,7 +4,7 @@ import { readdir } from "node:fs/promises";
 import * as z from "zod";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { createNvidiaModel, createEmbeddingsModel } from "../../server/agent/models.js";
+import { createChatModel, createEmbeddingsModel } from "../../server/agent/models.js";
 import {
   buildContextualChunk,
   getMessageText,
@@ -78,7 +78,7 @@ async function loadPdfs() {
 }
 
 export async function seed(knex) {
-  const model = createNvidiaModel();
+  const model = createChatModel();
   const embeddingsModel = createEmbeddingsModel();
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,
