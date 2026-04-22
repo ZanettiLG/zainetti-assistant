@@ -6,8 +6,10 @@ async function handleChatStream(agent, req, res) {
     req.on("end", async () => {
       try {
         const { message } = JSON.parse(body);
+        const normalizedMessage =
+          typeof message === "string" ? message.trim() : "";
 
-        if (!message) {
+        if (!normalizedMessage) {
           res.writeHead(400);
           res.end(JSON.stringify({ error: "Message is required" }));
           return resolve();
@@ -19,35 +21,62 @@ async function handleChatStream(agent, req, res) {
           Connection: "keep-alive",
         });
 
-        res.write(
-          `data: ${JSON.stringify({
-            workflow: { steps: ["classify", "rewrite", "retrieve", "synthesize"] },
-          })}\n\n`,
-        );
+        let seq = 0;
+        const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const now = () => new Date().toISOString();
+
+        const send = (type, payload) => {
+          seq += 1;
+          res.write(
+            `data: ${JSON.stringify({
+              seq,
+              timestamp: now(),
+              turnId,
+              type,
+              ...payload,
+            })}\n\n`,
+          );
+        };
+
+        send("workflow", {
+          steps: ["classify", "synthesize"],
+        });
 
         const stream = await agent.workflow.stream(
-          { question: message },
-          { streamMode: ["custom", "messages"] },
+          { question: normalizedMessage },
+          { streamMode: ["custom"] },
         );
 
         for await (const [event, data] of stream) {
           if (event === "custom") {
-            res.write(`data: ${JSON.stringify({ node: data })}\n\n`);
-          } else if (event === "messages") {
-            const [token, metadata] = data;
-            if (metadata?.langgraph_node !== "synthesize") continue;
-            const text = typeof token.content === "string" ? token.content : "";
-            if (text) {
-              res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-            }
+            send("node", { node: data });
           }
         }
 
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        send("node", {
+          node: {
+            step: "final-answer",
+            status: "done",
+            message: "Resposta finalizada.",
+          },
+        });
+
+        send("turn_done", {});
         res.end();
       } catch (error) {
         console.error("Error:", error);
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        const sendErr = (type, payload) => {
+          res.write(
+            `data: ${JSON.stringify({
+              seq: 0,
+              timestamp: new Date().toISOString(),
+              turnId: `turn-${Date.now()}`,
+              type,
+              ...payload,
+            })}\n\n`,
+          );
+        };
+        sendErr("error", { error: error.message });
         res.end();
       }
       resolve();

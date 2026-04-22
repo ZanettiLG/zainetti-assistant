@@ -42,10 +42,18 @@ export default ({ model }) => {
       RewriteQuerySchema,
     );
 
-    console.log("queryTopics rewrite", queryTopics);
+    const sanitizedTopics = [
+      ...new Set(queryTopics.map((topic) => topic.trim()).filter(Boolean)),
+    ];
+
+    const finalTopics = sanitizedTopics.length
+      ? sanitizedTopics
+      : [state.question.trim()];
+
+    console.log("queryTopics rewrite", finalTopics);
 
     // Streamar cada topico derivado como linha de progresso
-    for (const topic of queryTopics) {
+    for (const topic of finalTopics) {
       writer({
         step: "rewrite",
         status: "running",
@@ -56,10 +64,10 @@ export default ({ model }) => {
     writer({
       step: "rewrite",
       status: "done",
-      message: `${queryTopics.length} ${queryTopics.length === 1 ? "tópico identificado" : "tópicos identificados"}.`,
-      data: { queryTopics },
+      message: `${finalTopics.length} ${finalTopics.length === 1 ? "tópico identificado" : "tópicos identificados"}.`,
+      data: { queryTopics: finalTopics },
     });
 
-    return { queryTopics };
+    return { queryTopics: finalTopics };
   };
 };

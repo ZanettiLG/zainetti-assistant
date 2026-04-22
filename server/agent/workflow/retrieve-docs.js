@@ -129,7 +129,7 @@ export default ({ rag }) => {
 };
 
 /** Deduplica docs por chunk_id preservando ordem. */
-function dedup(docs) {
+export function dedup(docs) {
   const seen = new Set();
   const result = [];
   for (const doc of docs) {

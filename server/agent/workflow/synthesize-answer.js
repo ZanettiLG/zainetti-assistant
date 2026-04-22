@@ -1,118 +1,132 @@
 import { getWriter } from "@langchain/langgraph";
+import { AIMessage, ToolMessage } from "@langchain/core/messages";
 import { joinContext, getMessageText, joinRules } from "./utils.js";
+import {
+  searchHybridTool,
+  searchLessonsTool,
+  createToolExecutors,
+} from "./search-tools.js";
 
 const rules = [
   "Responda SEMPRE e EXCLUSIVAMENTE em português brasileiro. Nunca use outros idiomas",
-  "Responda APENAS com base nos trechos recuperados do material de aula. Não extrapole e não invente conteúdo",
+  "Responda APENAS com base nos trechos recuperados pelo uso das suas ferramentas de busca. Não extrapole e não invente conteúdo",
   "Cite explicitamente as aulas que sustentam cada afirmação no formato [Aula: <título>]",
   "Se a pergunta for ampla ou comparativa: baseie-se em pelo menos 2 aulas distintas",
+  "Use as ferramentas de busca disponíveis para encontrar o conteúdo relevante antes de responder",
+  "Para perguntas pontuais: use search_hybrid diretamente com a pergunta do aluno",
+  "Para perguntas amplas ou comparativas: use search_lessons primeiro para identificar as aulas relevantes, depois use search_hybrid para buscar trechos específicos",
   "Se a cobertura for insuficiente, diga explicitamente que a resposta é parcial e cite em quais aulas você se apoiou",
   "Não apresente um tema como 'visão do curso' se ele aparece em uma única aula",
   "Antes de responder, organize internamente (sem mostrar ao aluno) 1) aulas usadas, 2) pontos em comum, 3) pontos exclusivos de cada aula, 4) lacunas",
   "A resposta final ao aluno deve ser fluida, gentil e com as citações no formato pedido",
-  "Se um mapa_do_curso for fornecido, use-o como visão geral para contextualizar e referencie tanto o mapa quanto os trechos específicos",
   "Conclua sempre sua resposta de forma completa; não corte frases no meio",
-  "Se não houver informação suficiente nos trechos, diga honestamente que não sabe com base no material recuperado",
+  "Se não houver informação suficiente nos trechos recuperados, diga honestamente que não sabe com base no material recuperado",
 ];
 
 const systemPrefix = `
 Você é o assistente do Professor Zanetti. Seu nome é Assistente Zainetti.
 Seu público são os aspirantes (alunos). Seja gentil, educado e prestativo.
+Você possui ferramentas de busca para encontrar conteúdo nos materiais de aula. USE-AS antes de responder.
 **REGRAS**:
 `;
 
-/**
- * Agrupa documentos por subconsulta para o LLM ver a estrutura da busca.
- * Se não houver subconsultas (pontual), gera lista plana.
- */
-function buildSegmentsBlock(documents) {
-  if (!documents.length) return "(nenhum trecho recuperado)";
-
-  // Agrupar por _origin_query
-  const byQuery = new Map();
-  let counter = 0;
-  for (const doc of documents) {
-    const key = doc._origin_query ?? "__direct__";
-    if (!byQuery.has(key)) byQuery.set(key, []);
-    byQuery.get(key).push({ ...doc, _globalIdx: ++counter });
-  }
-
-  // Se há apenas um grupo "__direct__", mostrar lista plana
-  if (byQuery.size === 1 && byQuery.has("__direct__")) {
-    return formatDocList(documents, 1);
-  }
-
-  // Caso contrário, agrupar por subconsulta
-  const blocks = [];
-  for (const [query, docs] of byQuery) {
-    const header =
-      query === "__direct__"
-        ? "== Busca direta =="
-        : `== Subconsulta: "${query}" ==`;
-    blocks.push(`${header}\n${formatDocList(docs, docs[0]._globalIdx)}`);
-  }
-  return blocks.join("\n\n");
+function formatToolResult(name, result) {
+  return `Resultado da ferramenta ${name}:\n${result}`;
 }
 
-function formatDocList(docs, startIdx = 1) {
-  return docs
-    .map((doc, i) => {
-      const idx = doc._globalIdx ?? startIdx + i;
-      const title = doc.metadata?.lesson_title ?? "Aula desconhecida";
-      const mod = doc.metadata?.lesson_module ?? "-";
-      const content = doc.metadata?.enrichedContent ?? doc.pageContent;
-      return `#${idx} [Aula: ${title} | Módulo: ${mod}]\n${content}`;
-    })
-    .join("\n\n---\n\n");
-}
+export default ({ model, rag }) => {
+  const boundModel = model.bindTools([searchHybridTool, searchLessonsTool]);
 
-export default ({ model }) => {
   return async (state) => {
     const writer = getWriter();
+    const { executeSearchHybrid, executeSearchLessons } = createToolExecutors(
+      rag,
+      writer,
+    );
 
     writer({
       step: "synthesize",
       status: "running",
-      message: `Lendo ${state.documents.length} segmentos e formulando resposta...`,
+      message: "Iniciando busca e síntese da resposta...",
     });
-
-    const coverage = state.coverage ?? { lesson_ids: [], sufficient: false };
-    const coverageLabel = coverage.sufficient ? "suficiente" : "insuficiente";
-    const lessonsCount = coverage.lesson_ids?.length ?? 0;
 
     const systemContent = joinContext([systemPrefix, joinRules(rules)]);
 
-    // Se broad-context forneceu lessonsOverview, incluir mapa do curso
-    let overviewBlock = "";
-    if (state.lessonsOverview && state.lessonsOverview.length > 0) {
-      const lines = state.lessonsOverview.map((l) => {
-        const topics = Array.isArray(l.topics) ? l.topics.join(", ") : l.topics;
-        return `- [${l.title}] (Módulo: ${l.module ?? "-"}) — ${l.summary}\n  Tópicos: ${topics}`;
-      });
-      overviewBlock = `mapa_do_curso (${state.lessonsOverview.length} aulas):\n${lines.join("\n\n")}`;
+    const intentHint =
+      state.intent === "pontual"
+        ? "intenção: pontual — use search_hybrid diretamente"
+        : state.intent === "ampla" || state.intent === "comparativa"
+          ? `intenção: ${state.intent} — use search_lessons primeiro para identificar aulas, depois search_hybrid dentro delas`
+          : state.intent === "localizadora"
+            ? "intenção: localizadora — use search_hybrid para localizar trechos específicos"
+            : "intenção: não classificada";
+
+    const messages = [
+      { role: "system", content: systemContent },
+      {
+        role: "user",
+        content: [
+          intentHint,
+          `pergunta: """${state.question}"""`,
+        ].join("\n\n"),
+      },
+    ];
+
+    let response = await boundModel.invoke(messages);
+
+    while (response.tool_calls && response.tool_calls.length > 0) {
+      messages.push(new AIMessage({
+        content: response.content,
+        tool_calls: response.tool_calls,
+      }));
+
+      for (const toolCall of response.tool_calls) {
+        let result;
+        if (toolCall.name === "search_hybrid") {
+          result = await executeSearchHybrid(toolCall.args);
+        } else if (toolCall.name === "search_lessons") {
+          result = await executeSearchLessons(toolCall.args);
+        } else {
+          result = `Ferramenta desconhecida: ${toolCall.name}`;
+        }
+
+        messages.push(
+          new ToolMessage({
+            content: formatToolResult(toolCall.name, result),
+            tool_call_id: toolCall.id,
+          }),
+        );
+      }
+
+      response = await boundModel.invoke(messages);
     }
 
-    const userContent = [
-      `intenção_da_pergunta: ${state.intent ?? "não_classificada"}`,
-      `cobertura: ${coverageLabel} (aulas distintas recuperadas: ${lessonsCount})`,
-      ...(overviewBlock ? [overviewBlock] : []),
-      `pergunta: """${state.question}"""`,
-      `trechos_recuperados:\n${buildSegmentsBlock(state.documents)}`,
-    ].join("\n\n");
+    writer({
+      step: "synthesize",
+      status: "running",
+      message: "Gerando resposta final...",
+    });
 
-    const response = await model.invoke([
-      { role: "system", content: systemContent },
-      { role: "user", content: userContent },
-    ]);
+    const answerText = getMessageText(response);
+    const paragraphs = answerText
+      .split(/\n\n|\n#/)
+      .map((p) => p.trim())
+      .filter(Boolean);
 
-    const answer = getMessageText(response);
+    for (const paragraph of paragraphs) {
+      writer({
+        step: "final-answer",
+        status: "running",
+        content: paragraph,
+      });
+    }
 
     writer({
       step: "synthesize",
       status: "done",
-      message: `Resposta gerada (${answer.length} caracteres).`,
+      message: "Resposta finalizada.",
     });
 
-    return { answer };
+    return { answer: answerText };
   };
 };

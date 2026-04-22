@@ -1,6 +1,10 @@
 import { OpenAI } from "openai";
-import { env } from "../configs/index.js";
+import { activeChatProvider, activeEmbeddingProvider, chatFallbackProviders } from "../configs/index.js";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+
+// ─── NvidiaEmbeddings ─────────────────────────────────────────────────────────
+// NVIDIA's embeddings API requires an input_type field not supported by the
+// standard OpenAIEmbeddings class, so we extend it.
 
 class NvidiaEmbeddings extends OpenAIEmbeddings {
   async _createClient() {
@@ -49,57 +53,86 @@ class NvidiaEmbeddings extends OpenAIEmbeddings {
   }
 }
 
-function createNvidiaChat(model, schema) {
-  if(!schema) {
-    return new ChatOpenAI({
-      model,
-      maxRetries: 2,
-      timeout: 120000,
-      apiKey: env.NVIDIA_API_KEY,
-      ...(env.PROVIDER_URL && {
-        configuration: {
-          baseURL: env.PROVIDER_URL,
-        },
-      }),
-    });
-  }
-  return new ChatOpenAI({
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function buildChatInstance(provider, model, schema) {
+  const instance = new ChatOpenAI({
     model,
     maxRetries: 2,
     timeout: 120000,
-    apiKey: env.NVIDIA_API_KEY,
-    ...(env.PROVIDER_URL && {
-      configuration: {
-        baseURL: env.PROVIDER_URL,
-      },
+    apiKey: provider.apiKey,
+    ...(provider.baseURL && {
+      configuration: { baseURL: provider.baseURL },
     }),
-  }).withStructuredOutput(schema);
+  });
+  return schema ? instance.withStructuredOutput(schema) : instance;
 }
 
-function createNvidiaModel(schema) {
-  const primary = createNvidiaChat(env.CHAT_MODEL, schema);
+// ─── createChatModel ──────────────────────────────────────────────────────────
+// Returns the primary chat model with automatic fallbacks.
+// Fallback chain:
+//   1. chatModelFallback within the same primary provider (if configured)
+//   2. All other providers listed in PROVIDERS (in order)
 
-  if (env.CHAT_MODEL_FALLBACK) {
-    const fallback = createNvidiaChat(env.CHAT_MODEL_FALLBACK, schema);
-    return primary.withFallbacks({ fallbacks: [fallback] });
+function createChatModel(schema) {
+  const primary = buildChatInstance(activeChatProvider, activeChatProvider.chatModel, schema);
+
+  const fallbacks = [];
+
+  // Intra-provider fallback model (e.g. NVIDIA_CHAT_MODEL_FALLBACK)
+  if (activeChatProvider.chatModelFallback) {
+    fallbacks.push(
+      buildChatInstance(activeChatProvider, activeChatProvider.chatModelFallback, schema)
+    );
   }
 
-  return primary;
+  // Cross-provider fallbacks (remaining providers from PROVIDERS list)
+  for (const provider of chatFallbackProviders) {
+    fallbacks.push(buildChatInstance(provider, provider.chatModel, schema));
+    if (provider.chatModelFallback) {
+      fallbacks.push(buildChatInstance(provider, provider.chatModelFallback, schema));
+    }
+  }
+
+  return fallbacks.length > 0
+    ? primary.withFallbacks({ fallbacks })
+    : primary;
 }
 
+// ─── createChatInstance ───────────────────────────────────────────────────────
+// Returns a single chat instance for the active provider (no fallbacks).
+// Useful when you want explicit control over which model is used.
+
+function createChatInstance(model, schema) {
+  return buildChatInstance(activeChatProvider, model ?? activeChatProvider.chatModel, schema);
+}
+
+// ─── createEmbeddingsModel ────────────────────────────────────────────────────
+
 function createEmbeddingsModel() {
-  return new NvidiaEmbeddings({
-    model: env.EMBEDDING_MODEL,
-    apiKey: process.env.NVIDIA_API_KEY,
-    ...(env.PROVIDER_URL && {
-      configuration: {
-        baseURL: env.PROVIDER_URL,
-      },
+  const provider = activeEmbeddingProvider;
+
+  if (provider.name === "nvidia") {
+    return new NvidiaEmbeddings({
+      model: provider.embeddingModel,
+      apiKey: provider.apiKey,
+      ...(provider.baseURL && {
+        configuration: { baseURL: provider.baseURL },
+      }),
+    });
+  }
+
+  return new OpenAIEmbeddings({
+    model: provider.embeddingModel,
+    apiKey: provider.apiKey,
+    ...(provider.baseURL && {
+      configuration: { baseURL: provider.baseURL },
     }),
   });
 }
 
 export {
-    createEmbeddingsModel,
-    createNvidiaModel,
-}
+  createEmbeddingsModel,
+  createChatModel,
+  createChatInstance,
+};

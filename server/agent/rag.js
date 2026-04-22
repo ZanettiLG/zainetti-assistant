@@ -1,80 +1,15 @@
 import db from "../database.js";
 import { createEmbeddingsModel } from "./models.js";
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Separa conteúdo enriquecido (prefixo contextual) do original.
- * O prefixo termina com uma linha vazia após "[Resumo da aula: ...]".
- */
-function splitContextualContent(content) {
-  const separator = "\n\n";
-  const idx = content.indexOf(separator, content.indexOf("[Resumo da aula:"));
-  if (idx === -1) return { original: content, enriched: content };
-  return {
-    original: content.slice(idx + separator.length),
-    enriched: content,
-  };
-}
-
-/**
- * Reciprocal Rank Fusion — combina duas listas rankeadas em uma.
- */
-function reciprocalRankFusion(listA, listB, topK, k = 60) {
-  const scores = new Map();
-  const docMap = new Map();
-
-  for (const [i, doc] of listA.entries()) {
-    const key = keyOf(doc);
-    scores.set(key, (scores.get(key) ?? 0) + 1 / (k + i + 1));
-    if (!docMap.has(key)) docMap.set(key, doc);
-  }
-  for (const [i, doc] of listB.entries()) {
-    const key = keyOf(doc);
-    scores.set(key, (scores.get(key) ?? 0) + 1 / (k + i + 1));
-    if (!docMap.has(key)) docMap.set(key, doc);
-  }
-
-  return [...scores.entries()]
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, topK)
-    .map(([key]) => docMap.get(key));
-}
-
-function keyOf(doc) {
-  return doc.metadata?.chunk_id ?? doc.pageContent;
-}
-
-/**
- * Escapa uma query para FTS5 MATCH.
- */
-function fts5Escape(query) {
-  return query
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 1)
-    .map((t) => `"${t}"`)
-    .join(" OR ");
-}
-
-/**
- * Trunca texto para caber no limite de tokens do modelo de embeddings.
- * Estimativa conservadora: ~4 chars por token, limite 512 tokens → ~1800 chars.
- */
-function truncateForEmbedding(text, maxChars = 1400) {
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars);
-}
-
-/**
- * Converte Buffer (BLOB) de volta para Float64Array (que é o que MemoryVectorStore usa).
- * Os embeddings são armazenados como Float32Array para economia de espaço.
- */
-function bufferToFloat64Array(buf) {
-  const f32 = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
-  return Array.from(f32);
-}
+import {
+  splitContextualContent,
+  reciprocalRankFusion,
+  fts5Escape,
+  normalizeQuery,
+  truncateForEmbedding,
+  bufferToFloat64Array,
+  safeParseArray,
+} from "./rag-helpers.js";
 
 // ─── RAG Factory ────────────────────────────────────────────────────────────
 
@@ -230,19 +165,28 @@ export const createRag = async () => {
   // ─── Retrieval: vetorial direto em chunks ────────────────────────────────
 
   rag.retrieveDocuments = async (query, topK = 5) => {
-    const docs = await rag.chunkStore.similaritySearch(query, topK);
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery) return [];
+
+    const docs = await rag.chunkStore.similaritySearch(normalizedQuery, topK);
     return docs;
   };
 
   // ─── Retrieval: nível de aula ────────────────────────────────────────────
 
   rag.retrieveLessons = async (query, topN = 3) => {
-    return rag.lessonStore.similaritySearch(query, topN);
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery) return [];
+
+    return rag.lessonStore.similaritySearch(normalizedQuery, topN);
   };
 
   rag.retrieveChunksInLessons = async (query, lessonIds, topK = 3) => {
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery) return [];
+
     const candidates = await rag.chunkStore.similaritySearchWithScore(
-      query,
+      normalizedQuery,
       Math.max(50, topK * 5),
     );
     return candidates
@@ -254,7 +198,8 @@ export const createRag = async () => {
   // ─── Retrieval: BM25 via SQLite FTS5 ────────────────────────────────────
 
   rag.retrieveBM25 = async (query, topK = 20) => {
-    const escaped = fts5Escape(query);
+    const normalizedQuery = normalizeQuery(query);
+    const escaped = fts5Escape(normalizedQuery);
     if (!escaped) return [];
 
     try {
@@ -287,9 +232,12 @@ export const createRag = async () => {
   // ─── Retrieval: Hybrid (vetor + BM25 + RRF) ─────────────────────────────
 
   rag.retrieveHybrid = async (query, { topK = 8, vecK = 20, bmK = 20 } = {}) => {
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery) return [];
+
     const [vec, bm] = await Promise.all([
-      rag.chunkStore.similaritySearch(query, vecK),
-      rag.retrieveBM25(query, bmK),
+      rag.chunkStore.similaritySearch(normalizedQuery, vecK),
+      rag.retrieveBM25(normalizedQuery, bmK),
     ]);
     return reciprocalRankFusion(vec, bm, topK);
   };
@@ -331,14 +279,5 @@ export const createRag = async () => {
 
   return rag;
 };
-
-function safeParseArray(str) {
-  try {
-    const parsed = JSON.parse(str);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 export default createRag;

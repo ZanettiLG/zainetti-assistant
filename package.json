@@ -10,7 +10,11 @@
     "db:migrate": "knex migrate:latest",
     "db:seed": "knex seed:run",
     "db:setup": "knex migrate:latest && knex seed:run",
-    "eval": "node server/eval/run.js"
+    "eval": "node server/eval/run.js",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@langchain/classic": "^1.0.31",
@@ -31,6 +35,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.2.1",
-    "globals": "^17.5.0"
+    "globals": "^17.5.0",
+    "vitest": "^4.1.5"
   }
 }
